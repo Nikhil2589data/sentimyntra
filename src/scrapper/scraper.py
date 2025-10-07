@@ -1,5 +1,14 @@
 # src/scrapper/scraper.py
 import os
+
+# Detect if running on Streamlit Cloud (Linux container)
+running_on_streamlit = os.getenv("HOME") == "/home/appuser"
+
+if running_on_streamlit:
+    # Stop Selenium from running on Streamlit Cloud
+    raise Exception("⚠️ Scraping is disabled on Streamlit Cloud. Please run locally for live scraping.")
+
+import os
 import sys
 import time
 import random
