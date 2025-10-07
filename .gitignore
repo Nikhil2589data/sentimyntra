@@ -1,8 +1,4 @@
-.env
-.venv/
-__pycache__/
-*.pyc
-# Virtual envs
+# Virtual environments
 .venv/
 venv/
 env/
@@ -11,13 +7,18 @@ ENV/
 # PyCharm project files
 .idea/
 
-# Python caches / notebooks
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# OS files
+# System files
 .DS_Store
 
-# Local data outputs (if you want)
+# Data files (optional)
 myntra_reviews_extracted.csv
+
