@@ -1,0 +1,23 @@
+# Core Web App
+streamlit==1.38.0
+pandas==2.2.3
+python-dotenv==1.0.1
+
+# Web Scraping
+selenium==4.25.0
+webdriver-manager==4.0.2
+beautifulsoup4==4.12.3
+
+# Database
+pymongo==4.10.1
+
+# Visualization
+plotly==5.24.1
+
+# Utilities / Safety
+requests==2.32.3
+tqdm==4.66.5
+
+# Optional (for clean errors and logs)
+numpy==1.26.4
+
