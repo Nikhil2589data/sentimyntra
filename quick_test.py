@@ -1,4 +1,4 @@
-from src.scrapper.scraper import ScrapeReviews
+from src.scraper.scraper import ScrapeReviews
 
 # Create a scraper object
 scraper = ScrapeReviews("tshirt", 2, headless=False, debug=True)

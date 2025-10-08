@@ -1,7 +1,9 @@
+# app.py
+import traceback
 import streamlit as st
 import pandas as pd
-import os
-from src.scrapper.scraper import ScrapeReviews
+
+from src.scraper.scraper import ScrapeReviews
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
 
@@ -12,53 +14,60 @@ st.title("🛍️ Myntra Review Scraper")
 if "data" not in st.session_state:
     st.session_state["data"] = False
 
-product_name = st.text_input("Product name (e.g., 'tshirt', 'shoes')", "")
-no_of_products = st.number_input("Number of products to scrape", min_value=1, max_value=10, value=2, step=1)
+if SESSION_PRODUCT_KEY not in st.session_state:
+    st.session_state[SESSION_PRODUCT_KEY] = None
 
-# detect Streamlit Cloud environment
-running_on_streamlit = os.getenv("HOME") == "/home/appuser"
+# Inputs
+product_name = st.text_input("Product name (e.g., 'tshirt', 'shoes')", "")
+no_of_products = st.number_input(
+    "Number of products to scrape", min_value=1, max_value=10, value=2, step=1
+)
+headless = st.checkbox("Run headless (no browser window)", value=True)
+debug = st.checkbox("Debug mode (extra logs)", value=False)
 
 if st.button("🚀 Scrape Reviews"):
     if not product_name.strip():
         st.warning("Please enter a product name.")
     else:
         with st.spinner("Scraping reviews — this may take a minute..."):
+            scraper = None
             df = None
             try:
-                # disable scraper on Streamlit Cloud
-                if running_on_streamlit:
-                    raise Exception("⚠️ Live scraping is disabled on Streamlit Cloud. Using saved data instead.")
-
-                # normal scraping on local system
-                scraper = ScrapeReviews(product_name.strip(), int(no_of_products), headless=True, debug=False)
+                scraper = ScrapeReviews(
+                    product_name=product_name.strip(),
+                    no_of_products=int(no_of_products),
+                    headless=headless,
+                    debug=debug,
+                )
                 df = scraper.get_review_data()
-                scraper.close()
-
             except Exception as e:
-                st.warning(str(e))
-                # load fallback data if available
+                st.error(f"Scraping error: {e}")
+                if debug:
+                    st.text(traceback.format_exc())
+                df = None
+            finally:
                 try:
-                    df = pd.read_csv("data/myntra_reviews_extracted.csv")
-                    st.info("Loaded saved reviews from CSV instead.")
-                except Exception as csv_error:
-                    st.error(f"Failed to load saved CSV data: {csv_error}")
-                    df = None
+                    if scraper is not None and hasattr(scraper, "close"):
+                        scraper.close()
+                except Exception:
+                    if debug:
+                        st.text("Error while closing scraper:")
+                        st.text(traceback.format_exc())
 
-            # display or handle scraped/loaded data
-            if df is None or df.empty:
-                st.error("No reviews available. Try a different query locally or check saved CSV.")
+            if df is None or (hasattr(df, "empty") and df.empty):
+                st.error("No reviews found. Try a different query or set headless=False for debugging.")
             else:
-                st.success(f"Fetched {len(df)} reviews.")
+                st.success(f"Scraped {len(df)} reviews.")
                 st.dataframe(df)
-                # Save to MongoDB (skip if running on Streamlit Cloud)
-                if not running_on_streamlit:
-                    try:
-                        mongoio = MongoIO()
-                        mongoio.store_reviews(product_name.strip(), df)
-                        st.info("Saved reviews to MongoDB.")
-                        st.session_state["data"] = True
-                        st.session_state[SESSION_PRODUCT_KEY] = product_name.strip()
-                    except Exception as e:
-                        st.error(f"Failed to save to MongoDB: {e}")
-                else:
-                    st.info("MongoDB storage skipped on Streamlit Cloud.")
+
+                # Save to MongoDB
+                try:
+                    mongoio = MongoIO()
+                    mongoio.store_reviews(product_name.strip(), df)
+                    st.info("Saved reviews to MongoDB.")
+                    st.session_state["data"] = True
+                    st.session_state[SESSION_PRODUCT_KEY] = product_name.strip()
+                except Exception as e:
+                    st.error(f"Failed to save to MongoDB: {e}")
+                    if debug:
+                        st.text(traceback.format_exc())

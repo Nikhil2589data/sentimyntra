@@ -1,14 +1,12 @@
 # src/generate_analysis.py
+import traceback
 import streamlit as st
 import pandas as pd
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
 from src.data_report.generate_data_report import DashboardGenerator
 
-mongo_con = MongoIO()
-
 def create_analysis_page(review_data: pd.DataFrame):
-    """Displays analysis dashboard once reviews are fetched"""
     if review_data is not None and not review_data.empty:
         st.dataframe(review_data)
 
@@ -21,9 +19,21 @@ def create_analysis_page(review_data: pd.DataFrame):
 
 try:
     if "data" in st.session_state and st.session_state["data"]:
-        data = mongo_con.get_reviews(product_name=st.session_state[SESSION_PRODUCT_KEY])
-        create_analysis_page(data)
+        product_key = st.session_state.get(SESSION_PRODUCT_KEY)
+        if not product_key:
+            st.warning("No product selected in session. Please run the scraper first.")
+        else:
+            try:
+                mongo_con = MongoIO()
+                data = mongo_con.get_reviews(product_name=product_key)
+                create_analysis_page(data)
+            except Exception as e:
+                st.error("Failed to fetch data from MongoDB.")
+                if st.checkbox("Show DB traceback (debug)"):
+                    st.text(traceback.format_exc())
     else:
         st.sidebar.warning("🔍 Go to the Scraper page to collect data first.")
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Unexpected error: {e}")
+    if st.checkbox("Show full traceback (debug)"):
+        st.text(traceback.format_exc())

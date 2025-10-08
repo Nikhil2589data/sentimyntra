@@ -3,25 +3,36 @@ import os
 import traceback
 from typing import Optional
 
+def _last_traceback_frame(tb):
+    if tb is None:
+        return None
+    while getattr(tb, "tb_next", None):
+        tb = tb.tb_next
+    return tb
+
 def error_message_detail(error: BaseException, error_detail: Optional[object] = None) -> str:
     try:
         filename = "<unknown>"
         lineno = 0
+
         if error_detail is not None and hasattr(error_detail, "exc_info"):
-            _, _, exc_tb = error_detail.exc_info()
-            if exc_tb is not None:
-                filename = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                lineno = exc_tb.tb_lineno
+            try:
+                _, _, exc_tb = error_detail.exc_info()
+            except Exception:
+                exc_tb = None
+            last_tb = _last_traceback_frame(exc_tb)
+            if last_tb is not None:
+                filename = os.path.split(last_tb.tb_frame.f_code.co_filename)[1]
+                lineno = last_tb.tb_lineno
         else:
             tb = getattr(error, "__traceback__", None)
-            if tb is not None:
-                while tb.tb_next:
-                    tb = tb.tb_next
-                filename = os.path.split(tb.tb_frame.f_code.co_filename)[1]
-                lineno = tb.tb_lineno
+            last_tb = _last_traceback_frame(tb)
+            if last_tb is not None:
+                filename = os.path.split(last_tb.tb_frame.f_code.co_filename)[1]
+                lineno = last_tb.tb_lineno
 
         basic = f"Error occurred in script [{filename}] line number [{lineno}] error message [{error}]"
-        trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        trace = "".join(traceback.format_exception(type(error), error, getattr(error, "__traceback__", None)))
         return f"{basic}\nFull traceback:\n{trace}"
     except Exception as e:
         return f"Failed to generate detailed error message: {e}. Original error: {error}"
